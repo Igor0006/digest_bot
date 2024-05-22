@@ -1,46 +1,44 @@
 from aiogram import Router
-from aiogram.types import ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton
 from aiogram.types import Message
 from aiogram.filters import Command
 from lexicon.lexicon import LEXICON_RU
-from aiogram import F
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 import services
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.filters.callback_data import CallbackData
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 router = Router()
-btn_start = KeyboardButton(text='Давай')
-btn_pass = KeyboardButton(text='Впадлу \U0001F6AC')
-btn_rock = KeyboardButton(text="\U0001F5FF")
-btn_paper = KeyboardButton(text="\U0001F4DC")
-btn_scissors = KeyboardButton(text="\U00002702")
-btn_exit = KeyboardButton(text="\U0001f6d1")
-kp_start_menu = ReplyKeyboardBuilder()
-kp_start_menu.add(btn_start, btn_pass)
-kp_game = ReplyKeyboardBuilder()
-kp_game.add(btn_rock, btn_scissors, btn_paper, btn_exit)
-kp_game.adjust(3, 1)
 
 
-@router.message(F.text == btn_start.text)
-async def btn_1_answer(message: Message):
-    await message.answer(text=LEXICON_RU['player_choose'], reply_markup=kp_game.as_markup())
+class FieldCallBackData(CallbackData, prefix='user_field'):
+    x: int
+    y: int
 
 
-@router.message(F.text == btn_pass.text)
-async def btn_2_answer(message: Message):
-    await message.answer(text="....")
+field: list[list[int]] = services.set_field()
 
 
-@router.message(F.text.in_([btn_rock.text, btn_paper.text, btn_scissors.text]))
-async def bot_response(message: Message):
-    bot_choice: str = services.bot_choose()
-    await message.answer(text=bot_choice + " vs " + message.text + '\n' + LEXICON_RU[services.get_winner(message.text, bot_choice)]
-                                                                                              + '\n Сыграем еще?',
-                         reply_markup=kp_start_menu.as_markup())
+def get_field(field: list[list[int]]) -> InlineKeyboardBuilder:
+    game_field = InlineKeyboardBuilder()
+    for x in range(len(field)):
+        for y in range(len(field)):
+            game_field.button(text=LEXICON_RU[field[x][y]], callback_data=FieldCallBackData(x=x, y=y))
+    return game_field
+
+
+@router.callback_query(FieldCallBackData.filter())
+async def attack(callback: CallbackQuery, callback_data: FieldCallBackData):
+    if field[callback_data.x][callback_data.y] == 1:
+        field[callback_data.x][callback_data.y] = 3
+    if field[callback_data.x][callback_data.y] == 0:
+        field[callback_data.x][callback_data.y] = 2
+    await callback.message.edit_text(text=")", reply_markup=get_field(field).as_markup())
+
+
 @router.message(Command(commands='start'))
 async def start(message: Message):
     await message.answer(text=LEXICON_RU['\start'],
-                         reply_markup=kp_start_menu.as_markup())
+                         reply_markup=get_field(field).as_markup())
 
 
 @router.message(Command(commands='help'))
