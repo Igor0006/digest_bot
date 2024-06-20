@@ -1,3 +1,6 @@
-anonymous_filter = lambda x: str(x).lower().count('я') >= 23
-
-print(anonymous_filter('яяяяяяяяяяяяяяяяяяяяяяяя, яяяяяяяяяяяяяяяя и яяяяяяяя тоже!'))
+from datetime import datetime, date, timedelta
+from sqlalchemy import DateTime
+print(datetime.today())
+d = date(2024, 6, 14)
+print(d)
+print(d - timedelta(days=15))

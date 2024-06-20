@@ -1,46 +1,44 @@
 from aiogram import Router
+from aiogram.enums import ParseMode
 from aiogram.types import Message
 from aiogram.filters import Command
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database.models import Post
 from lexicon.lexicon import LEXICON_RU
 import services
+import logging
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
+logger = logging.getLogger()
 router = Router()
-
-
-class FieldCallBackData(CallbackData, prefix='user_field'):
-    x: int
-    y: int
-
-
-field: list[list[int]] = services.set_field()
-
-
-def get_field(field: list[list[int]]) -> InlineKeyboardBuilder:
-    game_field = InlineKeyboardBuilder()
-    for x in range(len(field)):
-        for y in range(len(field)):
-            game_field.button(text=LEXICON_RU[field[x][y]], callback_data=FieldCallBackData(x=x, y=y))
-    return game_field
-
-
-@router.callback_query(FieldCallBackData.filter())
-async def attack(callback: CallbackQuery, callback_data: FieldCallBackData):
-    if field[callback_data.x][callback_data.y] == 1:
-        field[callback_data.x][callback_data.y] = 3
-    if field[callback_data.x][callback_data.y] == 0:
-        field[callback_data.x][callback_data.y] = 2
-    await callback.message.edit_text(text=")", reply_markup=get_field(field).as_markup())
+user_id = 747110128
 
 
 @router.message(Command(commands='start'))
 async def start(message: Message):
-    await message.answer(text=LEXICON_RU['\start'],
-                         reply_markup=get_field(field).as_markup())
+    global user_id
+    logger.debug("in handler")
+    await message.answer(text=LEXICON_RU['\start'])
+    user_id = message.from_user.id
 
 
-@router.message(Command(commands='help'))
-async def help(message: Message):
-    await message.answer(text=LEXICON_RU['\help'])
+@router.channel_post()
+async def when_post(post: Message, session: AsyncSession):
+    link: str = "https://t.me/" + str(post.chat.username) + '/' + str(post.message_id)
+    session.add(Post(message_id=post.message_id, link=link, description=post.text, publication_date=post.date))
+    await session.commit()
+    print(post.date)
+    query = select(Post).where(Post.message_id == post.message_id)
+    result = (await session.execute(query)).scalar()
+    print("!", result.description, result.data)
+    #for product in result.scalars().all():
+    #    print("AAAAAAA", product.data)
+
+    await post.bot.send_message(user_id, text='[message]({})'.format(link),
+                                parse_mode=ParseMode.MARKDOWN_V2)
+    # await post.answer(text='да что ты говришь' + " " + str(post.message_id))
+    # await bot.send_message(user_id, post.text)
