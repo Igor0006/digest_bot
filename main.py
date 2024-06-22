@@ -8,7 +8,6 @@ from handlers import handler
 from lexicon.lexicon import LEXICON_RU, LEXICON_EN
 from database.engine import create_db, drop_db, session_maker
 
-
 # Настраиваем базовую конфигурацию логирования
 logging.basicConfig(
     level=logging.DEBUG,
@@ -38,12 +37,12 @@ async def main() -> None:
     await create_db()
 
     handler.router.channel_post.middleware(middlewares.DataBaseSession(session_pool=session_maker))
+    handler.router.message.middleware(middlewares.DataBaseSession(session_pool=session_maker))
     ##dp.update.outer_middleware(middlewares.TranslatorMiddleware())
     #await bot.delete_webhook(drop_pending_updates=True)
     #dp.startup.register(set_main_menu)
     #await bot.send_message(-1002205261693, "bugur")
     await dp.start_polling(bot, _bot=bot, _translations=translations)
-
 
 
 if __name__ == '__main__':
